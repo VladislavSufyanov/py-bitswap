@@ -7,6 +7,7 @@ name = "pypi"
 py-cid = "*"
 protobuf = "*"
 libp2p = "*"
+concurrent-log-handler = "*"
 
 [dev-packages]
 
