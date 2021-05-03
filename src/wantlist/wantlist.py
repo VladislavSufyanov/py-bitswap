@@ -4,7 +4,7 @@ from operator import attrgetter
 from cid import CIDv0, CIDv1
 
 from .entry import Entry
-from ..message import ProtoBuff
+from message import ProtoBuff
 
 
 class WantList:

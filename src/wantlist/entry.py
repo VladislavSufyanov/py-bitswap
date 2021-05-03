@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from cid import CIDv0, CIDv1
 
-from ..message import ProtoBuff
+from message import ProtoBuff
 
 
 @dataclass

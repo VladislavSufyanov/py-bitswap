@@ -8,6 +8,7 @@ py-cid = "*"
 protobuf = "*"
 libp2p = "*"
 concurrent-log-handler = "*"
+py-multihash = "*"
 
 [dev-packages]
 

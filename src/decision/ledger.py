@@ -3,8 +3,8 @@ from typing import Union, Optional
 from cid import CIDv0, CIDv1
 from libp2p.peer.id import ID
 
-from ..wantlist import WantList, Entry
-from ..message import ProtoBuff
+from wantlist import WantList, Entry
+from message import ProtoBuff
 
 
 class Ledger:
