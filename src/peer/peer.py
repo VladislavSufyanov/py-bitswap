@@ -13,3 +13,6 @@ class Peer:
 
     def __aiter__(self) -> AsyncGenerator[bytes, None]:
         return self._network_peer.__aiter__()
+
+    async def send(self, message: bytes) -> None:
+        self._network_peer.send(message)

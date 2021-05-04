@@ -7,3 +7,7 @@ class BasePeer(metaclass=ABCMeta):
     @abstractmethod
     def __aiter__(self) -> AsyncGenerator[bytes, None]:
         pass
+
+    @abstractmethod
+    def send(self, message: bytes) -> None:
+        pass
