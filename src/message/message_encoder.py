@@ -20,15 +20,20 @@ class MessageEncoder:
         return version_bytes + codec_bytes + hash_alg_bytes + hash_length
 
     @staticmethod
-    def _serialize_entries(bitswap_message: BitswapMessage) -> ProtoBuff.Message:
+    def _serialize_entries(bitswap_message: BitswapMessage) -> 'ProtoBuff.Message':
         message = ProtoBuff.Message()
         wantlist = message.wantlist
         entries = wantlist.entries
         wantlist.full = bitswap_message.full
+        block_presences = message.blockPresences
         for entry in bitswap_message.want_list.values():
             msg_entry = entries.add()
             msg_entry.block, msg_entry.priority, msg_entry.cancel, \
                 msg_entry.wantType, msg_entry.sendDontHave = entry.dump_fields()
+        for cid, presence_type in bitswap_message.block_presences.items():
+            msg_presence = block_presences.add()
+            msg_presence.cid = cid.encode()
+            msg_presence.type = presence_type
         return message
 
     @staticmethod

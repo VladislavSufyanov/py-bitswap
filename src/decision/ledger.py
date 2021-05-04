@@ -17,7 +17,7 @@ class Ledger:
         return cid in self.want_list
 
     def wants(self, cid: Union[CIDv0, CIDv1], priority: int,
-              want_type: ProtoBuff.WantType) -> None:
+              want_type: 'ProtoBuff.WantType') -> None:
         self.want_list.add(cid, priority, want_type)
 
     def cancel_want(self, cid: Union[CIDv0, CIDv1]) -> bool:

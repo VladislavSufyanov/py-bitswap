@@ -22,7 +22,7 @@ class WantList:
         return self._entries.values().__iter__()
 
     def add(self, cid: Union[CIDv0, CIDv1], priority: int,
-            want_type: ProtoBuff.WantType) -> bool:
+            want_type: 'ProtoBuff.WantType') -> bool:
         entry = self._entries.get(cid)
         if entry is not None and (entry.want_type == ProtoBuff.WantType.Block or
                                   want_type == ProtoBuff.WantType.Have):
@@ -37,7 +37,7 @@ class WantList:
         else:
             return False
 
-    def remove_type(self, cid: Union[CIDv0, CIDv1], want_type: ProtoBuff.WantType) -> bool:
+    def remove_type(self, cid: Union[CIDv0, CIDv1], want_type: 'ProtoBuff.WantType') -> bool:
         entry = self._entries.get(cid)
         if entry is None or (entry.want_type == ProtoBuff.WantType.Block and
                              want_type == ProtoBuff.WantType.Have):

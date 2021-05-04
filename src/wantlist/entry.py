@@ -12,6 +12,6 @@ class Entry:
 
     cid: Union[CIDv0, CIDv1]
     priority: int
-    want_type: ProtoBuff.WantType
+    want_type: 'ProtoBuff.WantType'
     block: Optional[bytes] = None
     sessions: Optional[List[Session]] = None

@@ -1,4 +1,4 @@
-from typing import Union, Dict, Optional
+from typing import Union, Dict
 
 from cid import CIDv0, CIDv1
 
@@ -9,18 +9,15 @@ from data_structure import Block
 
 class BitswapMessage:
 
-    def __init__(self, peer_cid: Union[CIDv0, CIDv1], full: bool,
-                 block_presence_cid: Optional[Union[CIDv0, CIDv1]] = None,
-                 block_presence_type: Optional[ProtoBuff.BlockPresenceType] = None) -> None:
+    def __init__(self, peer_cid: Union[CIDv0, CIDv1], full: bool) -> None:
         self.peer_cid = peer_cid
         self.full = full
         self.want_list: Dict[Union[CIDv0, CIDv1], MessageEntry] = {}
         self.payload: Dict[Union[CIDv0, CIDv1], Block] = {}
-        self.block_presence_cid = block_presence_cid
-        self.block_presence_type = block_presence_type
+        self.block_presences: Dict[Union[CIDv0, CIDv1], 'ProtoBuff.BlockPresenceType'] = {}
 
     def add_entry(self, cid: Union[CIDv0, CIDv1], priority: int, cancel: bool,
-                  want_type: ProtoBuff.WantType, send_do_not_have: bool) -> None:
+                  want_type: 'ProtoBuff.WantType', send_do_not_have: bool) -> None:
         entry = self.want_list.get(cid)
         if entry is not None and (entry.want_type == ProtoBuff.WantType.Block or
                                   want_type == ProtoBuff.WantType.Have):
@@ -33,5 +30,8 @@ class BitswapMessage:
         else:
             self.want_list[cid] = MessageEntry(cid, priority, cancel, want_type, send_do_not_have)
 
-    def add_block(self, block: Block):
+    def add_block(self, block: Block) -> None:
         self.payload[block.cid] = block
+
+    def add_block_presence(self, cid: Union[CIDv0, CIDv1], presence_type: 'ProtoBuff.BlockPresenceType') -> None:
+        self.block_presences[cid] = presence_type

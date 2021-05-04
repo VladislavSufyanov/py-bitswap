@@ -24,25 +24,22 @@ class MessageDecoder:
 
     @staticmethod
     def deserialize(peer_cid: Union[CIDv0, CIDv1], raw_message: bytes) -> BitswapMessage:
-        decoded_message = ProtoBuff.Message.ParseFromString(raw_message)
+        decoded_message = ProtoBuff.Message()
+        decoded_message.ParseFromString(raw_message)
         full = decoded_message.wantlist and decoded_message.wantlist.full
-        block_presence_cid, block_presence_type = None, None
-        if decoded_message.blockPresences.cid:
-            block_presence_cid = make_cid(decoded_message.blockPresences.cid)
-        if decoded_message.blockPresences.type:
-            block_presence_type = decoded_message.blockPresences.type
-        bitswap_message = BitswapMessage(peer_cid, full, block_presence_cid, block_presence_type)
+        bitswap_message = BitswapMessage(peer_cid, full)
         if decoded_message.wantlist:
             for entry in decoded_message.wantlist.entries:
                 cid = make_cid(entry.block)
                 bitswap_message.add_entry(cid, entry.priority, entry.cancel, entry.wantType, entry.sendDontHave)
-        if len(decoded_message.blocks) > 0:
+        if decoded_message.blocks:
             for block in decoded_message.blocks:
                 bitswap_message.add_block(Block(make_cid(multihash.digest(block, 'sha2-256')), block))
-        if len(decoded_message.payload) > 0:
-            for payload in decoded_message.payload:
-                cid_version, multi_codec, hash_func, _ = MessageDecoder._decode_var_int(payload.prefix)
-                multi_hash = multihash.digest(payload.data, hash_func).encode()
-                cid = make_cid(cid_version, CODE_TABLE[multi_codec], multi_hash)
-                bitswap_message.add_block(Block(cid, payload.data))
+        for payload in decoded_message.payload:
+            cid_version, multi_codec, hash_func, _ = MessageDecoder._decode_var_int(payload.prefix)
+            multi_hash = multihash.digest(payload.data, hash_func).encode()
+            cid = make_cid(cid_version, CODE_TABLE[multi_codec], multi_hash)
+            bitswap_message.add_block(Block(cid, payload.data))
+        for block_presence in decoded_message.blockPresences:
+            bitswap_message.add_block_presence(make_cid(block_presence.cid), block_presence.type)
         return bitswap_message
