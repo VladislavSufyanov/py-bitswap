@@ -9,5 +9,5 @@ class BasePeer(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def send(self, message: bytes) -> None:
+    async def send(self, message: bytes) -> None:
         pass

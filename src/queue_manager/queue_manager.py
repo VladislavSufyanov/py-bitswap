@@ -3,8 +3,10 @@ from asyncio import Queue, PriorityQueue
 
 from cid import CIDv0, CIDv1
 
+from .base_queue_manager import BaseQueueManager
 
-class QueueManager:
+
+class QueueManager(BaseQueueManager):
 
     def __init__(self) -> None:
         self._response_queues: Dict[Union[CIDv0, CIDv1], Queue] = {}
