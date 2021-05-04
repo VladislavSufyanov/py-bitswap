@@ -9,6 +9,8 @@ protobuf = "*"
 libp2p = "*"
 concurrent-log-handler = "*"
 py-multihash = "*"
+py-multicodec = "*"
+varint = "*"
 
 [dev-packages]
 
