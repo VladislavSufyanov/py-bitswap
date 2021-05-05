@@ -6,7 +6,6 @@ name = "pypi"
 [packages]
 py-cid = "*"
 protobuf = "*"
-libp2p = "*"
 concurrent-log-handler = "*"
 py-multihash = "*"
 py-multicodec = "*"
