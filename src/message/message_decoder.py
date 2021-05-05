@@ -1,11 +1,10 @@
-from typing import List, Union
+from typing import List
 from io import BytesIO
 
 from cid import make_cid
 import multihash
 from multicodec.constants import CODE_TABLE
 from varint import decode_stream
-from cid import CIDv0, CIDv1
 
 from . import ProtoBuff
 from .bitswap_message import BitswapMessage
@@ -23,11 +22,11 @@ class MessageDecoder:
         return res
 
     @staticmethod
-    def deserialize(peer_cid: Union[CIDv0, CIDv1], raw_message: bytes) -> BitswapMessage:
+    def deserialize(raw_message: bytes) -> BitswapMessage:
         decoded_message = ProtoBuff.Message()
         decoded_message.ParseFromString(raw_message)
         full = decoded_message.wantlist and decoded_message.wantlist.full
-        bitswap_message = BitswapMessage(peer_cid, full)
+        bitswap_message = BitswapMessage(full)
         if decoded_message.wantlist:
             for entry in decoded_message.wantlist.entries:
                 cid = make_cid(entry.block)

@@ -1,4 +1,4 @@
-from typing import Callable, Awaitable, Tuple
+from typing import Tuple
 import asyncio
 from functools import partial
 
@@ -6,38 +6,32 @@ from peer import Peer, BasePeerManager
 from session import BaseSessionManager
 from .base_connection_manager import BaseConnectionManager
 from message import MessageDecoder, MessageEncoder
-from queue_manager import BaseQueueManager
+from task import Task
+from decision import BaseEngine
 
 
 class ConnectionManager(BaseConnectionManager):
 
     def __init__(self, peer_manager: BasePeerManager, session_manager: BaseSessionManager,
-                 queue_manager: BaseQueueManager) -> None:
+                 engine: BaseEngine) -> None:
         self._peer_manager = peer_manager
         self._session_manager = session_manager
-        self._queue_manager = queue_manager
+        self._engine = engine
 
     def run_message_handlers(self, peer: Peer) -> Tuple[asyncio.Task, asyncio.Task]:
-        out_task_handler = self._create_task(self._out_message_handler(peer),
-                                             partial(self._out_message_handler, peer=peer))
-        in_task_handler = self._create_task(self._in_message_handler(peer),
-                                            partial(self._in_message_handler_done, peer=peer,
-                                                    out_task_handler=out_task_handler))
+        out_task_handler = Task.create_task(self._out_message_handler(peer),
+                                            partial(self._out_message_handler, peer=peer))
+        in_task_handler = Task.create_task(self._in_message_handler(peer),
+                                           partial(self._in_message_handler_done, peer=peer,
+                                                   out_task_handler=out_task_handler))
         return in_task_handler, out_task_handler
 
-    @staticmethod
-    def _create_task(func: Awaitable, callback: Callable) -> asyncio.Task:
-        task = asyncio.create_task(func)
-        task.add_done_callback(callback)
-        return task
-
     async def _in_message_handler(self, peer: Peer) -> None:
-        task_queue = self._queue_manager.create_tasks_queue(peer.cid)
-        if task_queue is None:
-            task_queue = self._queue_manager.get_tasks_queue(peer.cid)
+        self._engine.create_tasks_queue(peer)
         async for message in peer:
             try:
-                bit_msg = MessageDecoder.deserialize(peer.cid, message)
+                bit_msg = MessageDecoder.deserialize(message)
+                self._engine.handle_bit_swap_message(peer, bit_msg)
             except Exception as e:
                 ...
 
@@ -53,11 +47,10 @@ class ConnectionManager(BaseConnectionManager):
             for session in self._session_manager:
                 session.remove_peer(peer.cid)
             self._peer_manager.remove_peer(peer.cid)
+            self._engine.remove_tasks_queue(peer)
 
     async def _out_message_handler(self, peer: Peer) -> None:
-        queue = self._queue_manager.create_response_queue(peer.cid)
-        if queue is None:
-            queue = self._queue_manager.get_response_queue(peer.cid)
+        queue = self._engine.create_response_queue(peer)
         while True:
             bit_message = await queue.get()
             try:
@@ -74,4 +67,4 @@ class ConnectionManager(BaseConnectionManager):
         except Exception as e:
             ...
         finally:
-            self._queue_manager.remove_response_queue(peer.cid)
+            self._engine.remove_response_queue(peer)

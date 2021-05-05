@@ -18,6 +18,10 @@ class QueueManager(BaseQueueManager):
             self._response_queues[peer_cid] = p_queue
             return p_queue
 
+    def remove_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> None:
+        if peer_cid in self._tasks_queues:
+            del self._tasks_queues[peer_cid]
+
     def get_smallest_queue(self) -> Optional[Tuple[Union[CIDv0, CIDv1], Queue]]:
         s_queues = sorted(self._response_queues.items(), key=lambda t_q: t_q[1].qsize())
         if not s_queues:
@@ -27,7 +31,7 @@ class QueueManager(BaseQueueManager):
     def get_response_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[Queue]:
         return self._response_queues.get(peer_cid)
 
-    def get_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[Queue]:
+    def get_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[PriorityQueue]:
         return self._tasks_queues.get(peer_cid)
 
     def create_response_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[Queue]:

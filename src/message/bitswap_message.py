@@ -9,8 +9,7 @@ from data_structure import Block
 
 class BitswapMessage:
 
-    def __init__(self, peer_cid: Union[CIDv0, CIDv1], full: bool) -> None:
-        self.peer_cid = peer_cid
+    def __init__(self, full: bool) -> None:
         self.full = full
         self.want_list: Dict[Union[CIDv0, CIDv1], MessageEntry] = {}
         self.payload: Dict[Union[CIDv0, CIDv1], Block] = {}

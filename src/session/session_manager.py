@@ -1,3 +1,5 @@
+from typing import Generator
+
 import weakref
 
 from .base_session_manager import BaseSessionManager
@@ -9,7 +11,7 @@ class SessionManager(BaseSessionManager):
     def __init__(self) -> None:
         self.sessions = weakref.WeakSet()
 
-    def __iter__(self) -> Session:
+    def __iter__(self) -> Generator[Session, None, None]:
         return self.sessions.__iter__()
 
     def create_session(self) -> Session:

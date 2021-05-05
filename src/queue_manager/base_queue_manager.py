@@ -12,6 +12,10 @@ class BaseQueueManager(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def remove_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> None:
+        pass
+
+    @abstractmethod
     def get_smallest_queue(self) -> Optional[Tuple[Union[CIDv0, CIDv1], Queue]]:
         pass
 
@@ -20,7 +24,7 @@ class BaseQueueManager(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[Queue]:
+    def get_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[PriorityQueue]:
         pass
 
     @abstractmethod
