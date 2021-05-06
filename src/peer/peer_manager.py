@@ -32,8 +32,10 @@ class PeerManager(BasePeerManager):
         self._connection_manager.run_message_handlers(peer)
         self._peers[peer_cid] = peer
 
-    def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
-        if cid not in self._peers:
+    async def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
+        peer = self._peers.get(cid)
+        if peer is None:
             return False
+        await peer.close()
         del self._peers[cid]
         return True

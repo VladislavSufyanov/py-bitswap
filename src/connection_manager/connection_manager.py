@@ -46,7 +46,7 @@ class ConnectionManager(BaseConnectionManager):
             out_task_handler.cancel()
             for session in self._session_manager:
                 session.remove_peer(peer.cid)
-            self._peer_manager.remove_peer(peer.cid)
+            Task.create_task(self._peer_manager.remove_peer(peer.cid), Task.base_callback)
             self._engine.remove_tasks_queue(peer)
 
     async def _out_message_handler(self, peer: Peer) -> NoReturn:

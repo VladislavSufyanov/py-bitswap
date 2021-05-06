@@ -11,3 +11,7 @@ class BasePeer(metaclass=ABCMeta):
     @abstractmethod
     async def send(self, message: bytes) -> None:
         pass
+
+    @abstractmethod
+    async def close(self) -> None:
+        pass

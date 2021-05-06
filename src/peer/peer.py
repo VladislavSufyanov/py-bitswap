@@ -21,3 +21,6 @@ class Peer:
     async def send(self, message: bytes) -> None:
         async with self._send_lock:
             await self._network_peer.send(message)
+
+    async def close(self) -> None:
+        await self._network_peer.close()

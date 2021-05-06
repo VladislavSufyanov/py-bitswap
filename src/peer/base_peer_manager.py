@@ -28,5 +28,5 @@ class BasePeerManager(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
+    async def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
         pass
