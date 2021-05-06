@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, NoReturn
 import asyncio
 from functools import partial
 
@@ -26,7 +26,7 @@ class ConnectionManager(BaseConnectionManager):
                                                    out_task_handler=out_task_handler))
         return in_task_handler, out_task_handler
 
-    async def _in_message_handler(self, peer: Peer) -> None:
+    async def _in_message_handler(self, peer: Peer) -> NoReturn:
         self._engine.create_tasks_queue(peer)
         async for message in peer:
             try:
@@ -49,7 +49,7 @@ class ConnectionManager(BaseConnectionManager):
             self._peer_manager.remove_peer(peer.cid)
             self._engine.remove_tasks_queue(peer)
 
-    async def _out_message_handler(self, peer: Peer) -> None:
+    async def _out_message_handler(self, peer: Peer) -> NoReturn:
         queue = self._engine.create_response_queue(peer)
         while True:
             bit_message = await queue.get()

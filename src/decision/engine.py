@@ -11,13 +11,15 @@ from connection_manager import Sender
 from message import ProtoBuff, MessageEntry, BitswapMessage
 from queue_manager import BaseQueueManager
 from .base_engine import BaseEngine
+from wantlist import WantList
 
 
 class Engine(BaseEngine):
 
-    def __init__(self, local_ledger: Ledger, peer_manager: BasePeerManager,
-                 queue_manager: BaseQueueManager) -> None:
+    def __init__(self, local_ledger: Ledger, remote_ledgers: Dict[Union[CIDv0, CIDv1], Ledger],
+                 peer_manager: BasePeerManager, queue_manager: BaseQueueManager) -> None:
         self.local_ledger = local_ledger
+        self.remote_ledgers = remote_ledgers
         self._peer_manager = peer_manager
         self._queue_manager = queue_manager
 
@@ -51,19 +53,22 @@ class Engine(BaseEngine):
             if entry is not None:
                 entry.block = block.data
                 for session in entry.sessions:
+                    if peer not in session:
+                        session.add_peer(peer)
                     session.change_peer_score(peer.cid, 1)
                 Task.create_task(Sender.send_cancel(cid, all_peers), Task.base_callback)
             wants_peers = filter(lambda p: cid in p.ledger, all_peers)
             Task.create_task(Sender.send_blocks(wants_peers, (block,)), Task.base_callback)
 
     def _handle_presences(self, peer: Peer,
-                         block_presences: Dict[Union[CIDv0, CIDv1], 'ProtoBuff.BlockPresenceType']) -> None:
+                          block_presences: Dict[Union[CIDv0, CIDv1], 'ProtoBuff.BlockPresenceType']) -> None:
         for cid, b_presence_type in block_presences.items():
             entry = self.local_ledger.get_entry(cid)
             if entry is not None:
                 if b_presence_type == ProtoBuff.BlockPresenceType.Have:
                     for session in entry.sessions:
-                        session.add_peer(peer)
+                        if peer not in session:
+                            session.add_peer(peer)
                 elif b_presence_type == ProtoBuff.BlockPresenceType.DontHave:
                     for session in entry.sessions:
                         session.change_peer_score(peer.cid, -1)
@@ -71,9 +76,14 @@ class Engine(BaseEngine):
     async def _handle_entries(self, peer: Peer, entries: Dict[Union[CIDv0, CIDv1], MessageEntry]) -> None:
         queue = self._queue_manager.get_tasks_queue(peer.cid)
         if queue is not None:
-            Task.create_task(self._add_entries_q(queue, entries.values()), Task.base_callback)
+            Task.create_task(self._add_entries_q_ledger(peer, queue, entries.values()), Task.base_callback)
 
-    @staticmethod
-    async def _add_entries_q(queue: PriorityQueue, entries: Iterable[MessageEntry]) -> None:
+    async def _add_entries_q_ledger(self, peer: Peer, queue: PriorityQueue,
+                                    entries: Iterable[MessageEntry]) -> None:
+        ledger = self.remote_ledgers.get(peer.cid)
+        if ledger is None:
+            ledger = Ledger(WantList())
+            self.remote_ledgers[peer.cid] = ledger
         for entry in entries:
+            ledger.wants(entry.cid, entry.priority, entry.want_type)
             await queue.put((-entry.priority, entry))

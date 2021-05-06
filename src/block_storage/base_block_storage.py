@@ -19,5 +19,9 @@ class BaseBlockStorage(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    async def has(self, cid: Union[CIDv0, CIDv1]) -> bool:
+    def has(self, cid: Union[CIDv0, CIDv1]) -> bool:
+        pass
+
+    @abstractmethod
+    async def size(self, cid: Union[CIDv0, CIDv1]) -> int:
         pass

@@ -12,6 +12,9 @@ class Session:
         self._peers: Dict[Union[CIDv0, CIDv1], PeerScore] = {}
         self._min_score = min_score
 
+    def __contains__(self, peer: Peer) -> bool:
+        return peer.cid in self._peers
+
     def add_peer(self, peer: Peer) -> bool:
         if peer.cid in self._peers:
             return False

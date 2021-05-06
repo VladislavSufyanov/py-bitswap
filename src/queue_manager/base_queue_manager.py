@@ -16,7 +16,7 @@ class BaseQueueManager(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_smallest_queue(self) -> Optional[Tuple[Union[CIDv0, CIDv1], Queue]]:
+    def get_smallest_response_queue(self) -> Optional[Tuple[Union[CIDv0, CIDv1], Queue]]:
         pass
 
     @abstractmethod

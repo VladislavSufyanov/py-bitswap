@@ -15,14 +15,14 @@ class QueueManager(BaseQueueManager):
     def create_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[PriorityQueue]:
         if peer_cid not in self._tasks_queues:
             p_queue = PriorityQueue()
-            self._response_queues[peer_cid] = p_queue
+            self._tasks_queues[peer_cid] = p_queue
             return p_queue
 
     def remove_tasks_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> None:
         if peer_cid in self._tasks_queues:
             del self._tasks_queues[peer_cid]
 
-    def get_smallest_queue(self) -> Optional[Tuple[Union[CIDv0, CIDv1], Queue]]:
+    def get_smallest_response_queue(self) -> Optional[Tuple[Union[CIDv0, CIDv1], Queue]]:
         s_queues = sorted(self._response_queues.items(), key=lambda t_q: t_q[1].qsize())
         if not s_queues:
             return
