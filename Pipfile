@@ -10,6 +10,7 @@ concurrent-log-handler = "*"
 py-multihash = "*"
 py-multicodec = "*"
 varint = "*"
+colorlog = "*"
 
 [dev-packages]
 
