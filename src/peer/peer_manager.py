@@ -1,18 +1,21 @@
-from typing import Union, Dict, Optional, Iterator, List
+from typing import Union, Dict, Optional, Iterator, List, TYPE_CHECKING
 
 from cid import CIDv0, CIDv1
 
-from network import BaseNetwork
 from .peer import Peer
 from .base_peer_manager import BasePeerManager
-from connection_manager import BaseConnectionManager
-from decision import Ledger
-from wantlist import WantList
+from decision.ledger import Ledger
+from wantlist.wantlist import WantList
+
+if TYPE_CHECKING:
+    from network.base_network import BaseNetwork
+    from .peer import BasePeer
+    from connection_manager.base_connection_manager import BaseConnectionManager
 
 
 class PeerManager(BasePeerManager):
 
-    def __init__(self, connection_manager: BaseConnectionManager, network: BaseNetwork) -> None:
+    def __init__(self, connection_manager: 'BaseConnectionManager', network: 'BaseNetwork') -> None:
         self._connection_manager = connection_manager
         self._network = network
         self._peers: Dict[Union[CIDv0, CIDv1], Peer] = {}
@@ -26,11 +29,13 @@ class PeerManager(BasePeerManager):
     def get_peer(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[Peer]:
         return self._peers.get(peer_cid)
 
-    async def connect(self, peer_cid: Union[CIDv0, CIDv1]) -> None:
-        network_peer = await self._network.connect(peer_cid)
+    async def connect(self, peer_cid: Union[CIDv0, CIDv1], network_peer: Optional['BasePeer'] = None) -> Peer:
+        if network_peer is None:
+            network_peer = await self._network.connect(peer_cid)
         peer = Peer(peer_cid, network_peer, Ledger(WantList()))
-        self._connection_manager.run_message_handlers(peer)
+        self._connection_manager.run_message_handlers(peer, self)
         self._peers[peer_cid] = peer
+        return peer
 
     async def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
         peer = self._peers.get(cid)
@@ -39,3 +44,7 @@ class PeerManager(BasePeerManager):
         await peer.close()
         del self._peers[cid]
         return True
+
+    async def disconnect(self) -> None:
+        for peer in self._peers.values():
+            await peer.close()

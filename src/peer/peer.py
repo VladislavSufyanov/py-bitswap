@@ -1,15 +1,16 @@
-from typing import Union, AsyncGenerator
+from typing import Union, AsyncGenerator, TYPE_CHECKING
 from asyncio import Lock
 
 from cid import CIDv0, CIDv1
 
-from network import BasePeer
-from decision import Ledger
+if TYPE_CHECKING:
+    from network.base_network import BasePeer
+    from decision.ledger import Ledger
 
 
 class Peer:
 
-    def __init__(self, peer_cid: Union[CIDv0, CIDv1], network_peer: BasePeer, ledger: Ledger) -> None:
+    def __init__(self, peer_cid: Union[CIDv0, CIDv1], network_peer: 'BasePeer', ledger: 'Ledger') -> None:
         self.cid = peer_cid
         self.ledger = ledger
         self._network_peer = network_peer

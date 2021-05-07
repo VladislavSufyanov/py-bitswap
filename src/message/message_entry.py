@@ -1,9 +1,11 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, TYPE_CHECKING
 
 from cid import CIDv0, CIDv1
 
-from wantlist import Entry
-from .proto_buff import ProtoBuff
+from wantlist.entry import Entry
+
+if TYPE_CHECKING:
+    from .proto_buff import ProtoBuff
 
 
 class MessageEntry:

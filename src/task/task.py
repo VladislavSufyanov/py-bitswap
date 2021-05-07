@@ -19,4 +19,4 @@ class Task:
             pass
         except Exception as e:
             if logger is not None:
-                ...
+                ...  # log

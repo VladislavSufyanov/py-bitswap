@@ -1,10 +1,12 @@
-from typing import Union, Optional, List
+from typing import Union, Optional, Set, TYPE_CHECKING
 from dataclasses import dataclass
+import weakref
 
 from cid import CIDv0, CIDv1
 
-from message import ProtoBuff
-from session import Session
+if TYPE_CHECKING:
+    from message.proto_buff import ProtoBuff
+    from session.session import Session
 
 
 @dataclass
@@ -14,4 +16,7 @@ class Entry:
     priority: int
     want_type: 'ProtoBuff.WantType'
     block: Optional[bytes] = None
-    sessions: Optional[List[Session]] = None
+    sessions: Set['Session'] = weakref.WeakSet()
+
+    def add_session(self, session: 'Session') -> None:
+        self.sessions.add(session)

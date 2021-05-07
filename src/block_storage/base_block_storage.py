@@ -15,6 +15,10 @@ class BaseBlockStorage(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    async def delete(self, cid: Union[CIDv0, CIDv1]) -> None:
+        pass
+
+    @abstractmethod
     async def put_many(self, blocks: Dict[Union[CIDv0, CIDv1], bytes]) -> None:
         pass
 

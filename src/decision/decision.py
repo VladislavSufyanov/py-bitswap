@@ -1,22 +1,26 @@
-from typing import Optional, Any, NoReturn, Dict, Union
+from typing import Optional, Any, NoReturn, Dict, Union, TYPE_CHECKING
 import asyncio
 
 from cid import CIDv0, CIDv1
 
-from .ledger import Ledger
-from queue_manager import BaseQueueManager
-from task import Task
-from message import MessageEntry, ProtoBuff
-from block_storage import BaseBlockStorage
-from connection_manager import Sender
-from peer import BasePeerManager
-from data_structure import Block
+from task.task import Task
+from message.proto_buff import ProtoBuff
+from connection_manager.sender import Sender
+from data_structure.block import Block
+from .base_decision import BaseDecision
+
+if TYPE_CHECKING:
+    from .ledger import Ledger
+    from queue_manager.base_queue_manager import BaseQueueManager
+    from message.message_entry import MessageEntry
+    from block_storage.base_block_storage import BaseBlockStorage
+    from peer.base_peer_manager import BasePeerManager
 
 
-class Decision:
+class Decision(BaseDecision):
 
-    def __init__(self, queue_manager: BaseQueueManager, block_storage: BaseBlockStorage,
-                 remote_ledgers: Dict[Union[CIDv0, CIDv1], Ledger], peer_manager: BasePeerManager,
+    def __init__(self, queue_manager: 'BaseQueueManager', block_storage: 'BaseBlockStorage',
+                 remote_ledgers: Dict[Union[CIDv0, CIDv1], 'Ledger'], peer_manager: 'BasePeerManager',
                  max_block_size_have_to_block: int = 1024, task_wait_timeout: float = 0.5) -> None:
         self._queue_manager = queue_manager
         self._block_storage = block_storage
@@ -71,7 +75,7 @@ class Decision:
                 if ledger is not None:
                     tasks_queue = self._queue_manager.get_tasks_queue(peer_cid)
                     _, entry = await asyncio.wait_for(tasks_queue.get(), self._task_wait_timeout)
-                    entry: MessageEntry
+                    entry: 'MessageEntry'
                     while entry.cid not in ledger:
                         _, entry = await asyncio.wait_for(tasks_queue.get(), self._task_wait_timeout)
                     if entry.want_type == ProtoBuff.WantType.Have:

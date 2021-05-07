@@ -6,9 +6,9 @@ import multihash
 from multicodec.constants import CODE_TABLE
 from varint import decode_stream
 
-from . import ProtoBuff
+from .proto_buff import ProtoBuff
 from .bitswap_message import BitswapMessage
-from data_structure import Block
+from data_structure.block import Block
 
 
 class MessageDecoder:

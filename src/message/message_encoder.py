@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, TYPE_CHECKING
 
 from cid import CIDv0, CIDv1
 from multicodec import get_prefix
@@ -6,7 +6,9 @@ from varint import encode
 from multihash import decode
 
 from .proto_buff import ProtoBuff
-from .bitswap_message import BitswapMessage
+
+if TYPE_CHECKING:
+    from .bitswap_message import BitswapMessage
 
 
 class MessageEncoder:
@@ -20,7 +22,7 @@ class MessageEncoder:
         return version_bytes + codec_bytes + hash_alg_bytes + hash_length
 
     @staticmethod
-    def _serialize_entries(bitswap_message: BitswapMessage) -> 'ProtoBuff.Message':
+    def _serialize_entries(bitswap_message: 'BitswapMessage') -> 'ProtoBuff.Message':
         message = ProtoBuff.Message()
         wantlist = message.wantlist
         entries = wantlist.entries
@@ -37,7 +39,7 @@ class MessageEncoder:
         return message
 
     @staticmethod
-    def serialize_1_0_0(bitswap_message: BitswapMessage) -> bytes:
+    def serialize_1_0_0(bitswap_message: 'BitswapMessage') -> bytes:
         message = MessageEncoder._serialize_entries(bitswap_message)
         blocks = message.blocks
         for block in bitswap_message.payload.values():
@@ -46,7 +48,7 @@ class MessageEncoder:
         return message.SerializeToString()
 
     @staticmethod
-    def serialize_1_1_0(bitswap_message: BitswapMessage) -> bytes:
+    def serialize_1_1_0(bitswap_message: 'BitswapMessage') -> bytes:
         message = MessageEncoder._serialize_entries(bitswap_message)
         payload = message.payload
         for block in bitswap_message.payload.values():
