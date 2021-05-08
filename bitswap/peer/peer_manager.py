@@ -57,5 +57,8 @@ class PeerManager(BasePeerManager):
 
     async def disconnect(self) -> None:
         for peer in self._peers.values():
-            await peer.close()
+            try:
+                await peer.close()
+            except Exception as e:
+                self._logger.exception(f'Close connection with peer exception, peer_cid: {peer.cid}, e: {e}')
         self._logger.debug('Disconnect all peers')

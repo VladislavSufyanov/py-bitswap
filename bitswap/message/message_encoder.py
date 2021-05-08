@@ -3,7 +3,7 @@ from typing import Union, TYPE_CHECKING
 from cid import CIDv0, CIDv1
 from multicodec import get_prefix
 from varint import encode
-from multihash import decode
+import multihash
 
 from .proto_buff import ProtoBuff
 
@@ -17,9 +17,8 @@ class MessageEncoder:
     def _cid_prefix(cid: Union[CIDv0, CIDv1]):
         version_bytes = encode(cid.version)
         codec_bytes = get_prefix(cid.codec)
-        hash_alg_bytes = encode(decode(cid.multihash).func.value)
-        hash_length = encode(cid.multihash[1])
-        return version_bytes + codec_bytes + hash_alg_bytes + hash_length
+        hash_alg_and_len_bytes = multihash.get_prefix(cid.multihash)
+        return version_bytes + codec_bytes + hash_alg_and_len_bytes
 
     @staticmethod
     def _serialize_entries(bitswap_message: 'BitswapMessage') -> 'ProtoBuff.Message':

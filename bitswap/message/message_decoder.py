@@ -9,6 +9,7 @@ from varint import decode_stream
 from .proto_buff import ProtoBuff
 from .bitswap_message import BitswapMessage
 from ..data_structure.block import Block
+from ..table import HASH_TABLE
 
 
 class MessageDecoder:
@@ -32,11 +33,14 @@ class MessageDecoder:
                 cid = make_cid(entry.block)
                 bitswap_message.add_entry(cid, entry.priority, entry.cancel, entry.wantType, entry.sendDontHave)
         if decoded_message.blocks:
+            hash_func = HASH_TABLE[multihash.coerce_code('sha2-256')]
             for block in decoded_message.blocks:
-                bitswap_message.add_block(Block(make_cid(multihash.digest(block, 'sha2-256')), block))
+                mh = multihash.encode(hash_func(block).digest(), 'sha2-256')
+                bitswap_message.add_block(Block(make_cid(multihash.to_b58_string(mh)), block))
         for payload in decoded_message.payload:
-            cid_version, multi_codec, hash_func, _ = MessageDecoder._decode_var_int(payload.prefix)
-            multi_hash = multihash.digest(payload.data, hash_func).encode()
+            cid_version, multi_codec, hash_func_prefix, _ = MessageDecoder._decode_var_int(payload.prefix)
+            hash_func = HASH_TABLE[multihash.coerce_code(hash_func_prefix)]
+            multi_hash = multihash.encode(hash_func(payload.data).digest(), hash_func_prefix)
             cid = make_cid(cid_version, CODE_TABLE[multi_codec], multi_hash)
             bitswap_message.add_block(Block(cid, payload.data))
         for block_presence in decoded_message.blockPresences:

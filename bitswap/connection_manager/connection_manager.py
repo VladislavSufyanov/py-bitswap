@@ -75,6 +75,7 @@ class ConnectionManager(BaseConnectionManager):
         except Exception as e:
             self._logger.debug(f'Exception _in_message_handler_done, peer_cid: {peer.cid}, e: {e}')
         finally:
+            self._logger.debug(f'Close connection, peer_cid: {peer.cid}')
             out_task_handler.cancel()
             for session in self._session_manager:
                 session.remove_peer(peer.cid)

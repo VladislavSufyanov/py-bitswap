@@ -39,7 +39,7 @@ class Decision(BaseDecision):
         self._decision_task: Optional[asyncio.Task] = None
 
     def run(self) -> None:
-        if self._decision_task is not None:
+        if self._decision_task is None:
             self._decision_task = Task.create_task(self._decision(), Task.base_callback)
 
     def stop(self) -> None:
