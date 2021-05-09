@@ -1,5 +1,6 @@
 from typing import Dict, Union, Iterable, TYPE_CHECKING, Optional
 from logging import INFO
+from functools import partial
 
 from cid import CIDv0, CIDv1
 
@@ -49,11 +50,13 @@ class Engine(BaseEngine):
                     entry.block = block.data
                     self._logger.debug(f'Got block from {peer.cid}, block_cid: {cid}')
                     if cancel_peers:
-                        Task.create_task(Sender.send_cancel(cid, cancel_peers), Task.base_callback)
+                        Task.create_task(Sender.send_cancel(cid, cancel_peers),
+                                         partial(Task.base_callback, logger=self._logger))
                         self._logger.debug(f'Send cancel to {[str(p.cid) for p in all_peers]}, block_cid: {cid}')
             wants_peers = list(filter(lambda p: cid in p.ledger, all_peers))
             if wants_peers:
-                Task.create_task(Sender.send_blocks(wants_peers, (block,)), Task.base_callback)
+                Task.create_task(Sender.send_blocks(wants_peers, (block,)),
+                                 partial(Task.base_callback, logger=self._logger))
                 self._logger.debug(f'Send block to {[str(p.cid) for p in wants_peers]}, block_cid: {cid}')
 
     def _handle_presences(self, peer: 'Peer',
@@ -69,7 +72,8 @@ class Engine(BaseEngine):
                         session.change_peer_score(peer.cid, -1)
 
     def _handle_entries(self, peer: 'Peer', entries: Dict[Union[CIDv0, CIDv1], 'MessageEntry']) -> None:
-        Task.create_task(self._add_entries_q_ledger(peer, entries.values()), Task.base_callback)
+        Task.create_task(self._add_entries_q_ledger(peer, entries.values()),
+                         partial(Task.base_callback, logger=self._logger))
 
     @staticmethod
     async def _add_entries_q_ledger(peer: 'Peer', entries: Iterable['MessageEntry']) -> None:

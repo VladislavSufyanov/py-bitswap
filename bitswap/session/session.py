@@ -2,6 +2,7 @@ from typing import Union, Dict, Optional, List, TYPE_CHECKING
 import weakref
 import asyncio
 from logging import INFO
+from time import monotonic
 
 from cid import CIDv0, CIDv1
 
@@ -33,7 +34,7 @@ class Session:
         self._min_score = min_score
 
     def __contains__(self, peer: 'Peer') -> bool:
-        return peer.cid in self._peers
+        return str(peer.cid) in self._peers
 
     def get_notify_peers(self, block_cid: Union[CIDv0, CIDv1],
                          current_peer: Optional[Union[CIDv0, CIDv1]] = None) -> List['Peer']:
@@ -73,10 +74,13 @@ class Session:
         self._logger.debug(f'Remove peer from session, session: {self}, peer_cid: {str_cid}')
         return True
 
-    async def get(self, entry: 'Entry', connect_timeout: int = 7, peer_act_timeout: int = 5) -> Optional[bytes]:
+    async def get(self, entry: 'Entry', connect_timeout: int = 7, peer_act_timeout: int = 5,
+                  ban_peer_timeout: int = 10) -> None:
         str_entry_cid = str(entry.cid)
         entry.add_session(self)
-        new_peers_cid = []
+        ban_peers: Dict[str, float] = {}
+        sent_w_block_to_peers: List[PeerScore] = []
+        new_peers_cid: List[Union[CIDv0, CIDv1]] = []
         if str_entry_cid not in self._blocks_have:
             self._blocks_have[str_entry_cid] = weakref.WeakSet()
         if str_entry_cid not in self._blocks_pending:
@@ -86,51 +90,67 @@ class Session:
             all_peers = self._peer_manager.get_all_peers()
             if not all_peers:
                 self._logger.debug(f'No active connections with peers, session: {self}')
-                new_peers_cid = await self._network.find_peers(entry.cid)
-                if await self._connect(new_peers_cid, connect_timeout) is None:
-                    self._logger.warning(f'Cant connect to peers, session: {self}')
-                    return
+                while True:
+                    new_peers_cid = await self._network.find_peers(entry.cid)
+                    if not new_peers_cid:
+                        self._logger.warning(f'Cant find peers, block_cid: {entry.cid}, session: {self}')
+                        await asyncio.sleep(peer_act_timeout)
+                    elif await self._connect(new_peers_cid, ban_peers, connect_timeout, ban_peer_timeout) is None:
+                        self._logger.warning(f'Cant connect to peers, session: {self}')
+                    else:
+                        break
                 all_peers = self._peer_manager.get_all_peers()
             await Sender.send_entries((entry,), all_peers, ProtoBuff.WantType.Have)
         else:
             await Sender.send_entries((entry,), (p.peer for p in self._peers.values()), ProtoBuff.WantType.Have)
-        while entry.block is None:
-            try:
-                have_peer = await asyncio.wait_for(self._wait_for_have_peer(entry.cid), peer_act_timeout)
-            except asyncio.exceptions.TimeoutError:
-                self._logger.debug(f'Wait have timeout, session: {self}')
-                new_peer = await self._connect(new_peers_cid, connect_timeout)
-                if new_peer is None:
-                    new_peers_cid = await self._network.find_peers(entry.cid)
-                    new_peer = await self._connect(new_peers_cid, connect_timeout)
-                if new_peer is not None:
-                    await Sender.send_entries((entry,), (new_peer,), ProtoBuff.WantType.Have)
-            else:
-                self._blocks_have[str_entry_cid].remove(have_peer)
-                if have_peer not in self._blocks_pending[str_entry_cid]:
-                    self._blocks_pending[str_entry_cid].add(have_peer)
-                    await Sender.send_entries((entry,), (have_peer.peer,), ProtoBuff.WantType.Block)
-                    try:
-                        await asyncio.wait_for(self._wait_for_block(entry), peer_act_timeout)
-                    except asyncio.exceptions.TimeoutError:
-                        self._logger.debug(f'Block wait timeout, block_cid: {entry.cid}')
-        self._blocks_have[str_entry_cid].clear()
-        self._blocks_pending[str_entry_cid].clear()
-        del self._blocks_have[str_entry_cid]
-        del self._blocks_pending[str_entry_cid]
-        return entry.block
+        try:
+            while entry.block is None:
+                try:
+                    have_peer = await asyncio.wait_for(self._wait_for_have_peer(entry.cid), peer_act_timeout)
+                except asyncio.exceptions.TimeoutError:
+                    self._logger.debug(f'Wait have timeout, session: {self}')
+                    new_peer = await self._connect(new_peers_cid, ban_peers, connect_timeout, ban_peer_timeout)
+                    if new_peer is None:
+                        new_peers_cid = await self._network.find_peers(entry.cid)
+                        new_peer = await self._connect(new_peers_cid, ban_peers, connect_timeout, ban_peer_timeout)
+                    if new_peer is not None:
+                        await Sender.send_entries((entry,), (new_peer,), ProtoBuff.WantType.Have)
+                else:
+                    self._blocks_have[str_entry_cid].remove(have_peer)
+                    if have_peer not in self._blocks_pending[str_entry_cid] and have_peer.peer in self._peer_manager:
+                        self._blocks_pending[str_entry_cid].add(have_peer)
+                        sent_w_block_to_peers.append(have_peer)
+                        await Sender.send_entries((entry,), (have_peer.peer,), ProtoBuff.WantType.Block)
+                        try:
+                            await asyncio.wait_for(self._wait_for_block(entry), peer_act_timeout)
+                        except asyncio.exceptions.TimeoutError:
+                            self._logger.debug(f'Block wait timeout, block_cid: {entry.cid}')
+        finally:
+            for peer in sent_w_block_to_peers:
+                if peer in self._blocks_pending[str_entry_cid]:
+                    self._blocks_pending[str_entry_cid].remove(peer)
 
-    async def _connect(self, peers_cid: List[Union[CIDv0, CIDv1]], connect_timeout: int) -> Optional['Peer']:
+    async def _connect(self, peers_cid: List[Union[CIDv0, CIDv1]], ban_peers: Dict[str, float],
+                       connect_timeout: int, ban_peer_timeout: int) -> Optional['Peer']:
+        unban_cid = []
+        for s_cid, ban_time in ban_peers.items():
+            if monotonic() - ban_time > ban_peer_timeout:
+                unban_cid.append(s_cid)
+        for s_cid in unban_cid:
+            del ban_peers[s_cid]
         while len(peers_cid) > 0:
             p_cid = peers_cid.pop()
-            try:
-                peer = await asyncio.wait_for(self._peer_manager.connect(p_cid), connect_timeout)
-                if peer is not None:
-                    break
-            except asyncio.exceptions.TimeoutError:
-                self._logger.debug(f'Connect timeout, peer_cid: {p_cid}')
-            except Exception as e:
-                self._logger.exception(f'Connect exception, peer_cid: {p_cid}, e: {e}')
+            if str(p_cid) not in ban_peers:
+                try:
+                    peer = await asyncio.wait_for(self._peer_manager.connect(p_cid), connect_timeout)
+                    if peer is not None:
+                        break
+                except asyncio.exceptions.TimeoutError:
+                    self._logger.debug(f'Connect timeout, peer_cid: {p_cid}')
+                    ban_peers[str(p_cid)] = monotonic()
+                except Exception as e:
+                    self._logger.debug(f'Connect exception, peer_cid: {p_cid}, e: {e}')
+                    ban_peers[str(p_cid)] = monotonic()
         else:
             return
         return peer

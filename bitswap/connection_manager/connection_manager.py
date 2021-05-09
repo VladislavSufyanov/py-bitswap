@@ -32,7 +32,7 @@ class ConnectionManager(BaseConnectionManager):
     def run_handle_conn(self, network: 'BaseNetwork', peer_manager: 'BasePeerManager') -> None:
         self._new_connections_task = Task.create_task(ConnectionManager._handle_new_connections(network, peer_manager,
                                                                                                 self._logger),
-                                                      Task.base_callback)
+                                                      partial(Task.base_callback, logger=self._logger))
 
     def stop_handle_conn(self) -> None:
         self._new_connections_task.cancel()
@@ -78,7 +78,7 @@ class ConnectionManager(BaseConnectionManager):
             out_task_handler.cancel()
             for session in self._session_manager:
                 session.remove_peer(peer.cid)
-            Task.create_task(peer_manager.remove_peer(peer.cid), Task.base_callback)
+            Task.create_task(peer_manager.remove_peer(peer.cid), partial(Task.base_callback, logger=self._logger))
 
     async def _out_message_handler(self, peer: 'Peer') -> NoReturn:
         queue = peer.response_queue

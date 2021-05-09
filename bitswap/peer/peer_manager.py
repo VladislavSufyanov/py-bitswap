@@ -27,6 +27,9 @@ class PeerManager(BasePeerManager):
         self._network = network
         self._peers: Dict[str, Peer] = {}
 
+    def __contains__(self, peer: Peer):
+        return str(peer.cid) in self._peers
+
     def __iter__(self) -> Iterator[Peer]:
         return self._peers.values().__iter__()
 

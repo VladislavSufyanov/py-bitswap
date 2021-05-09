@@ -1,6 +1,7 @@
 from typing import Optional, Any, NoReturn, Union, TYPE_CHECKING
 import asyncio
 from logging import INFO
+from functools import partial
 
 from cid import CIDv0, CIDv1
 
@@ -36,7 +37,7 @@ class Decision(BaseDecision):
 
     def run(self) -> None:
         if self._decision_task is None:
-            self._decision_task = Task.create_task(self._decision(), Task.base_callback)
+            self._decision_task = Task.create_task(self._decision(), partial(Task.base_callback, logger=self._logger))
 
     def stop(self) -> None:
         self._decision_task.cancel()
@@ -111,5 +112,7 @@ class Decision(BaseDecision):
                                              f'cid: {entry.cid}')
             except asyncio.exceptions.TimeoutError:
                 pass
+            except asyncio.exceptions.CancelledError:
+                raise
             except Exception as e:
                 self._logger.exception(f'Decision work exception, e: {e}')

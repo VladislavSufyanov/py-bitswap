@@ -1,6 +1,7 @@
 from typing import Union, Any, Optional, TYPE_CHECKING
 import logging
 import asyncio
+from functools import partial
 
 from cid import CIDv0, CIDv1
 
@@ -15,6 +16,7 @@ from .wantlist.wantlist import WantList
 from .message.proto_buff import ProtoBuff
 from .peer.peer_manager import PeerManager
 from .connection_manager.connection_manager import ConnectionManager
+from .task.task import Task
 
 if TYPE_CHECKING:
     from network import BaseNetwork
@@ -67,7 +69,7 @@ class Bitswap(BaseBitswap):
 
     async def get(self, cid: Union[CIDv0, CIDv1], priority: int = 1, timeout: int = 60,
                   session: Optional[Session] = None, connect_timeout: int = 7,
-                  peer_act_timeout: int = 5) -> Optional[bytes]:
+                  peer_act_timeout: int = 5, ban_peer_timeout: int = 10) -> Optional[bytes]:
         if self._block_storage.has(cid):
             self._logger.info(f'Get block from block storage, block_cid: {cid}')
             return await self._block_storage.get(cid)
@@ -85,10 +87,13 @@ class Bitswap(BaseBitswap):
         elif entry.want_type == ProtoBuff.WantType.Have or entry.priority != priority:
             entry.priority = priority
             entry.want_type = ProtoBuff.WantType.Block
+        session_get_task = Task.create_task(session.get(entry, connect_timeout, peer_act_timeout, ban_peer_timeout),
+                                            partial(Task.base_callback, logger=self._logger))
         try:
-            await asyncio.wait_for(session.get(entry, connect_timeout, peer_act_timeout), timeout)
+            await asyncio.wait_for(entry.block_event.wait(), timeout)
         except asyncio.exceptions.TimeoutError:
             self._logger.warning(f'Get timeout, block_cid: {cid}')
+        session_get_task.cancel()
         block = entry.block
         if block is not None:
             self._local_ledger.cancel_want(entry.cid)
