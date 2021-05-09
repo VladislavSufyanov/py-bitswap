@@ -40,7 +40,7 @@ class ConnectionManager(BaseConnectionManager):
 
     def run_message_handlers(self, peer: 'Peer', peer_manager: 'BasePeerManager') -> Tuple[asyncio.Task, asyncio.Task]:
         out_task_handler = Task.create_task(self._out_message_handler(peer),
-                                            partial(self._out_message_handler, peer=peer))
+                                            partial(self._out_message_handler_done, peer=peer))
         in_task_handler = Task.create_task(self._in_message_handler(peer, peer_manager),
                                            partial(self._in_message_handler_done, peer=peer,
                                                    peer_manager=peer_manager, out_task_handler=out_task_handler))
@@ -94,7 +94,7 @@ class ConnectionManager(BaseConnectionManager):
             except Exception as e:
                 self._logger.exception(f'Send message exception, peer_cid: {peer.cid}, e: {e}')
 
-    async def _out_message_handler_done(self, task: asyncio.Task, peer: 'Peer') -> None:
+    def _out_message_handler_done(self, task: asyncio.Task, peer: 'Peer') -> None:
         try:
             task.result()
         except asyncio.CancelledError:

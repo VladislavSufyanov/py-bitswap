@@ -1,5 +1,6 @@
 from typing import Dict, Union, Optional, Tuple
 from asyncio import Queue, PriorityQueue
+from random import choice
 
 from cid import CIDv0, CIDv1
 
@@ -23,10 +24,20 @@ class QueueManager(BaseQueueManager):
             del self._tasks_queues[peer_cid]
 
     def get_smallest_response_queue(self) -> Optional[Tuple[Union[CIDv0, CIDv1], Queue]]:
-        s_queues = min(self._response_queues.items(), key=lambda t_q: t_q[1].qsize())
-        if not s_queues:
+        if not self._response_queues:
             return
-        return s_queues
+        s_queues = sorted(self._response_queues.items(), key=lambda t_q: t_q[1].qsize())
+        duplicate_size = []
+        min_size = s_queues[0][1].qsize()
+        for i in range(1, len(s_queues)):
+            if s_queues[i][1].qsize() == min_size:
+                duplicate_size.append(s_queues[i])
+            else:
+                break
+        if duplicate_size:
+            return choice(duplicate_size)
+        else:
+            return s_queues[0]
 
     def get_response_queue(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[Queue]:
         return self._response_queues.get(peer_cid)

@@ -68,13 +68,13 @@ class Engine(BaseEngine):
                     entry.block = block.data
                     self._logger.debug(f'Got block from {peer.cid}, block_cid: {cid}')
                     Task.create_task(Sender.send_cancel(cid, all_peers, logger=self._logger), Task.base_callback)
-                    self._logger.debug(f'Send cancel to {[p.cid for p in all_peers]}, block_cid: {cid}')
+                    self._logger.debug(f'Send cancel to {[str(p.cid) for p in all_peers]}, block_cid: {cid}')
                 for session in entry.sessions:
                     session.add_peer(peer, cid, have=False)
                     session.change_peer_score(peer.cid, 1)
             wants_peers = filter(lambda p: cid in p.ledger, all_peers)
             Task.create_task(Sender.send_blocks(wants_peers, (block,), self._logger), Task.base_callback)
-            self._logger.debug(f'Send block to {[p.cid for p in wants_peers]}, block_cid: {cid}')
+            self._logger.debug(f'Send block to {[str(p.cid) for p in wants_peers]}, block_cid: {cid}')
 
     def _handle_presences(self, peer: 'Peer',
                           block_presences: Dict[Union[CIDv0, CIDv1], 'ProtoBuff.BlockPresenceType']) -> None:
@@ -88,7 +88,7 @@ class Engine(BaseEngine):
                     for session in entry.sessions:
                         session.change_peer_score(peer.cid, -1)
 
-    async def _handle_entries(self, peer: 'Peer', entries: Dict[Union[CIDv0, CIDv1], 'MessageEntry']) -> None:
+    def _handle_entries(self, peer: 'Peer', entries: Dict[Union[CIDv0, CIDv1], 'MessageEntry']) -> None:
         queue = self._queue_manager.get_tasks_queue(peer.cid)
         if queue is not None:
             Task.create_task(self._add_entries_q_ledger(peer, queue, entries.values()), Task.base_callback)

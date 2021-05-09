@@ -27,37 +27,41 @@ class Session:
             self._logger = get_concurrent_logger(__name__, log_path, log_level)
         self._network = network
         self._peer_manager = peer_manager
-        self._peers: Dict[Union[CIDv0, CIDv1], PeerScore] = {}
-        self._blocks_have: Dict[Union[CIDv0, CIDv1], weakref.WeakSet] = {}
-        self._blocks_pending: Dict[Union[CIDv0, CIDv1], weakref.WeakSet] = {}
+        self._peers: Dict[str, PeerScore] = {}
+        self._blocks_have: Dict[str, weakref.WeakSet] = {}
+        self._blocks_pending: Dict[str, weakref.WeakSet] = {}
         self._min_score = min_score
 
     def __contains__(self, peer: 'Peer') -> bool:
         return peer.cid in self._peers
 
     def add_peer(self, peer: 'Peer', block_cid: Union[CIDv0, CIDv1], have: bool = True) -> None:
-        if peer.cid not in self._peers:
-            self._peers[peer.cid] = PeerScore(peer)
-            self._logger.debug(f'Add new peer to session, session: {self}, peer_cid: {peer.cid}')
+        str_peer_cid = str(peer.cid)
+        str_block_cid = str(block_cid)
+        if str_peer_cid not in self._peers:
+            self._peers[str_peer_cid] = PeerScore(peer)
+            self._logger.debug(f'Add new peer to session, session: {self}, peer_cid: {str_peer_cid}')
         if have:
-            if block_cid not in self._blocks_have:
-                self._blocks_have[block_cid] = weakref.WeakSet()
-            self._blocks_have[block_cid].add(self._peers[peer.cid])
+            if str_block_cid not in self._blocks_have:
+                self._blocks_have[str_block_cid] = weakref.WeakSet()
+            self._blocks_have[str_block_cid].add(self._peers[str(peer.cid)])
 
     def change_peer_score(self, cid: Union[CIDv0, CIDv1], score_diff: int) -> bool:
-        if cid not in self._peers:
+        str_cid = str(cid)
+        if str_cid not in self._peers:
             return False
-        new_score = self._peers[cid].change_score(score_diff)
+        new_score = self._peers[str_cid].change_score(score_diff)
         if new_score < self._min_score:
-            self._logger.debug(f'Min score, session: {self}, peer_cid: {cid}')
+            self._logger.debug(f'Min score, session: {self}, peer_cid: {str_cid}')
             self.remove_peer(cid)
         return True
 
     def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
-        if cid not in self._peers:
+        str_cid = str(cid)
+        if str_cid not in self._peers:
             return False
-        del self._peers[cid]
-        self._logger.debug(f'Remove peer from session, session: {self}, peer_cid: {cid}')
+        del self._peers[str_cid]
+        self._logger.debug(f'Remove peer from session, session: {self}, peer_cid: {str_cid}')
         return True
 
     async def _connect(self, peers_cid: List[Union[CIDv0, CIDv1]], connect_timeout: int) -> Optional['Peer']:
@@ -65,7 +69,8 @@ class Session:
             p_cid = peers_cid.pop()
             try:
                 peer = await asyncio.wait_for(self._peer_manager.connect(p_cid), connect_timeout)
-                break
+                if peer is not None:
+                    break
             except asyncio.exceptions.TimeoutError:
                 self._logger.debug(f'Connect timeout, peer_cid: {p_cid}')
             except Exception as e:
@@ -74,11 +79,12 @@ class Session:
             return
         return peer
 
-    def _get_peer_with_max_score(self, cid: Union[CIDv0, CIDv1]) -> 'Peer':
-        return max(self._blocks_have[cid], key=lambda p: p.score)
+    def _get_peer_with_max_score(self, cid: Union[CIDv0, CIDv1]) -> PeerScore:
+        return max(self._blocks_have[str(cid)], key=lambda p: p.score)
 
-    async def _wait_for_have_peer(self, cid: Union[CIDv0, CIDv1], period: float = 0.1) -> 'Peer':
-        while cid not in self._blocks_have or len(self._blocks_have[cid]) == 0:
+    async def _wait_for_have_peer(self, cid: Union[CIDv0, CIDv1], period: float = 0.1) -> PeerScore:
+        str_cid = str(cid)
+        while str_cid not in self._blocks_have or len(self._blocks_have[str_cid]) == 0:
             await asyncio.sleep(period)
         return self._get_peer_with_max_score(cid)
 
@@ -89,12 +95,13 @@ class Session:
         return entry.block
 
     async def get(self, entry: 'Entry', connect_timeout: int = 7, peer_act_timeout: int = 5) -> Optional[bytes]:
+        str_entry_cid = str(entry.cid)
         entry.add_session(self)
         new_peers_cid = []
-        if entry.cid not in self._blocks_have:
-            self._blocks_have[entry.cid] = weakref.WeakSet()
-        if entry.cid not in self._blocks_pending:
-            self._blocks_pending[entry.cid] = weakref.WeakSet()
+        if str_entry_cid not in self._blocks_have:
+            self._blocks_have[str_entry_cid] = weakref.WeakSet()
+        if str_entry_cid not in self._blocks_pending:
+            self._blocks_pending[str_entry_cid] = weakref.WeakSet()
         if not self._peers:
             self._logger.debug(f'Session has not peers, session: {self}')
             all_peers = self._peer_manager.get_all_peers()
@@ -122,17 +129,17 @@ class Session:
                     await Sender.send_entries((entry,), (new_peer,), ProtoBuff.WantType.Have,
                                               logger=self._logger)
             else:
-                self._blocks_have[entry.cid].remove(have_peer)
-                if have_peer not in self._blocks_pending[entry.cid]:
-                    self._blocks_pending[entry.cid].add(have_peer)
-                    await Sender.send_entries((entry,), (have_peer,), ProtoBuff.WantType.Block,
+                self._blocks_have[str_entry_cid].remove(have_peer)
+                if have_peer not in self._blocks_pending[str_entry_cid]:
+                    self._blocks_pending[str_entry_cid].add(have_peer)
+                    await Sender.send_entries((entry,), (have_peer.peer,), ProtoBuff.WantType.Block,
                                               logger=self._logger)
                     try:
                         await asyncio.wait_for(self._wait_for_block(entry), peer_act_timeout)
                     except asyncio.exceptions.TimeoutError:
                         self._logger.debug(f'Block wait timeout, block_cid: {entry.cid}')
-        self._blocks_have[entry.cid].clear()
-        self._blocks_pending[entry.cid].clear()
-        del self._blocks_have[entry.cid]
-        del self._blocks_pending[entry.cid]
+        self._blocks_have[str_entry_cid].clear()
+        self._blocks_pending[str_entry_cid].clear()
+        del self._blocks_have[str_entry_cid]
+        del self._blocks_pending[str_entry_cid]
         return entry.block

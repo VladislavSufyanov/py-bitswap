@@ -27,7 +27,7 @@ class Bitswap(BaseBitswap):
     def __init__(self, network: 'BaseNetwork', block_storage: 'BaseBlockStorage',
                  log_level: int = logging.INFO, log_path: Optional[str] = None,
                  max_block_size_have_to_block: int = 1024, task_wait_timeout: float = 0.5,
-                 min_score: int = -100) -> None:
+                 decision_sleep_timeout: float = 0.1, min_score: int = -100) -> None:
         if log_path is None:
             self._logger = get_stream_logger_colored(__name__, log_level)
         else:
@@ -43,7 +43,7 @@ class Bitswap(BaseBitswap):
         self._peer_manager = PeerManager(self._connection_manager, self._network, log_level, log_path)
         self._decision = Decision(self._queue_manager, self._block_storage, self._remote_ledgers,
                                   self._peer_manager, max_block_size_have_to_block, task_wait_timeout,
-                                  log_level, log_path)
+                                  decision_sleep_timeout, log_level, log_path)
 
     async def __aenter__(self) -> 'Bitswap':
         await self.run()
@@ -80,6 +80,7 @@ class Bitswap(BaseBitswap):
         entry = self._local_ledger.get_entry(cid)
         if entry is None:
             self._local_ledger.wants(cid, priority, ProtoBuff.WantType.Block)
+            entry = self._local_ledger.get_entry(cid)
         elif entry.block is not None:
             self._logger.info(f'Get block from local ledger, block_cid: {cid}')
             block = entry.block

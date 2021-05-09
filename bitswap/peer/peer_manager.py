@@ -25,7 +25,7 @@ class PeerManager(BasePeerManager):
             self._logger = get_concurrent_logger(__name__, log_path, log_level)
         self._connection_manager = connection_manager
         self._network = network
-        self._peers: Dict[Union[CIDv0, CIDv1], Peer] = {}
+        self._peers: Dict[str, Peer] = {}
 
     def __iter__(self) -> Iterator[Peer]:
         return self._peers.values().__iter__()
@@ -34,24 +34,29 @@ class PeerManager(BasePeerManager):
         return list(self._peers.values())
 
     def get_peer(self, peer_cid: Union[CIDv0, CIDv1]) -> Optional[Peer]:
-        return self._peers.get(peer_cid)
+        return self._peers.get(str(peer_cid))
 
-    async def connect(self, peer_cid: Union[CIDv0, CIDv1], network_peer: Optional['BasePeer'] = None) -> Peer:
+    async def connect(self, peer_cid: Union[CIDv0, CIDv1],
+                      network_peer: Optional['BasePeer'] = None) -> Optional[Peer]:
+        str_peer_cid = str(peer_cid)
+        if str_peer_cid in self._peers:
+            return
         if network_peer is None:
             network_peer = await self._network.connect(peer_cid)
             self._logger.debug(f'Connected to peer, peer_cid: {peer_cid}')
         peer = Peer(peer_cid, network_peer, Ledger(WantList()))
         self._connection_manager.run_message_handlers(peer, self)
-        self._peers[peer_cid] = peer
+        self._peers[str_peer_cid] = peer
         self._logger.debug(f'Add new peer, peer_cid: {peer_cid}')
         return peer
 
     async def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
-        peer = self._peers.get(cid)
+        str_cid = str(cid)
+        peer = self._peers.get(str_cid)
         if peer is None:
             return False
         await peer.close()
-        del self._peers[cid]
+        del self._peers[str_cid]
         self._logger.debug(f'Remove peer, peer_cid: {cid}')
         return True
 
