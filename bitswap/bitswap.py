@@ -1,4 +1,4 @@
-from typing import Union, Any, Optional, Dict, TYPE_CHECKING
+from typing import Union, Any, Optional, TYPE_CHECKING
 import logging
 import asyncio
 
@@ -15,7 +15,6 @@ from .wantlist.wantlist import WantList
 from .message.proto_buff import ProtoBuff
 from .peer.peer_manager import PeerManager
 from .connection_manager.connection_manager import ConnectionManager
-from .queue_manager.queue_manager import QueueManager
 
 if TYPE_CHECKING:
     from network import BaseNetwork
@@ -35,15 +34,12 @@ class Bitswap(BaseBitswap):
         self._network = network
         self._block_storage = block_storage
         self._local_ledger = Ledger(WantList())
-        self._remote_ledgers: Dict[Union[CIDv0, CIDv1], Ledger] = {}
-        self._queue_manager = QueueManager()
         self._session_manager = SessionManager(min_score, log_level, log_path)
-        self._engine = Engine(self._local_ledger, self._remote_ledgers, self._queue_manager, log_level, log_path)
+        self._engine = Engine(self._local_ledger, log_level, log_path)
         self._connection_manager = ConnectionManager(self._session_manager, self._engine, log_level, log_path)
         self._peer_manager = PeerManager(self._connection_manager, self._network, log_level, log_path)
-        self._decision = Decision(self._queue_manager, self._block_storage, self._remote_ledgers,
-                                  self._peer_manager, max_block_size_have_to_block, task_wait_timeout,
-                                  decision_sleep_timeout, log_level, log_path)
+        self._decision = Decision(self._block_storage, self._peer_manager, max_block_size_have_to_block,
+                                  task_wait_timeout, decision_sleep_timeout, log_level, log_path)
 
     async def __aenter__(self) -> 'Bitswap':
         await self.run()

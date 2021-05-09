@@ -1,68 +1,49 @@
-from typing import Union, Iterable, Optional, TYPE_CHECKING
-from logging import Logger
+from typing import Union, Iterable, TYPE_CHECKING
 
 from cid import CIDv0, CIDv1
 
 from ..message.bitswap_message import BitswapMessage
-from ..message.message_encoder import MessageEncoder
 from ..message.proto_buff import ProtoBuff
 
 if TYPE_CHECKING:
-    from ..peer.peer import Peer
     from ..data_structure.block import Block
     from ..wantlist.entry import Entry
+    from ..peer.peer import Peer
 
 
 class Sender:
 
     @staticmethod
-    async def _send(msg: bytes, peers: Iterable['Peer'], logger: Optional[Logger] = None):
+    async def _send(b_message: BitswapMessage, peers: Iterable['Peer']) -> None:
         for peer in peers:
-            try:
-                await peer.send(msg)
-            except Exception as e:
-                if logger is not None:
-                    logger.debug(f'Send exception, peer_cid: {peer.cid}, e: {e}')
+            await peer.response_queue.put(b_message)
+            for cid in b_message.payload.keys():
+                peer.ledger.cancel_want(cid)
 
     @staticmethod
     async def send_entries(entries: Iterable['Entry'], peers: Iterable['Peer'],
-                           want_type: 'ProtoBuff.WantType', full: bool = False,
-                           logger: Optional[Logger] = None) -> None:
-        message = BitswapMessage(full)
+                           want_type: 'ProtoBuff.WantType', full: bool = False) -> None:
+        entries_message = BitswapMessage(full)
         for entry in entries:
-            message.add_entry(entry.cid, entry.priority, False, want_type, True)
-        msg = MessageEncoder.serialize_1_1_0(message)
-        await Sender._send(msg, peers, logger)
+            entries_message.add_entry(entry.cid, entry.priority, False, want_type, True)
+        await Sender._send(entries_message, peers)
 
     @staticmethod
-    async def send_cancel(block_cid: Union[CIDv0, CIDv1], peers: Iterable['Peer'], priority=1,
-                          logger: Optional[Logger] = None) -> None:
+    async def send_cancel(block_cid: Union[CIDv0, CIDv1], peers: Iterable['Peer'], priority=1) -> None:
         cancel_message = BitswapMessage(False)
         cancel_message.add_entry(block_cid, priority, True, ProtoBuff.WantType.Block, False)
-        msg = MessageEncoder.serialize_1_1_0(cancel_message)
-        await Sender._send(msg, peers, logger)
+        await Sender._send(cancel_message, peers)
 
     @staticmethod
     async def send_presence(block_cid: Union[CIDv0, CIDv1], peers: Iterable['Peer'],
-                            presence_type: 'ProtoBuff.BlockPresenceType',
-                            logger: Optional[Logger] = None) -> None:
+                            presence_type: 'ProtoBuff.BlockPresenceType') -> None:
         presence_message = BitswapMessage(False)
         presence_message.add_block_presence(block_cid, presence_type)
-        msg = MessageEncoder.serialize_1_1_0(presence_message)
-        await Sender._send(msg, peers, logger)
+        await Sender._send(presence_message, peers)
 
     @staticmethod
-    async def send_blocks(peers: Iterable['Peer'], blocks: Iterable['Block'],
-                          logger: Optional[Logger] = None) -> None:
-        bit_swap_message = BitswapMessage(False)
+    async def send_blocks(peers: Iterable['Peer'], blocks: Iterable['Block']) -> None:
+        blocks_message = BitswapMessage(False)
         for block in blocks:
-            bit_swap_message.add_block(block)
-        msg = MessageEncoder.serialize_1_1_0(bit_swap_message)
-        for peer in peers:
-            try:
-                await peer.send(msg)
-            except Exception as e:
-                if logger is not None:
-                    logger.debug(f'Send exception, peer_cid: {peer.cid}, e: {e}')
-            for cid in bit_swap_message.payload.keys():
-                peer.ledger.cancel_want(cid)
+            blocks_message.add_block(block)
+        await Sender._send(blocks_message, peers)

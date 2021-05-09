@@ -56,7 +56,6 @@ class ConnectionManager(BaseConnectionManager):
             await peer_manager.connect(peer_cid, network_peer)
 
     async def _in_message_handler(self, peer: 'Peer', peer_manager: 'BasePeerManager') -> NoReturn:
-        self._engine.create_tasks_queue(peer)
         async for message in peer:
             try:
                 bit_msg = MessageDecoder.deserialize(message)
@@ -80,10 +79,9 @@ class ConnectionManager(BaseConnectionManager):
             for session in self._session_manager:
                 session.remove_peer(peer.cid)
             Task.create_task(peer_manager.remove_peer(peer.cid), Task.base_callback)
-            self._engine.remove_tasks_queue(peer)
 
     async def _out_message_handler(self, peer: 'Peer') -> NoReturn:
-        queue = self._engine.create_response_queue(peer)
+        queue = peer.response_queue
         while True:
             bit_message = await queue.get()
             try:
@@ -101,5 +99,3 @@ class ConnectionManager(BaseConnectionManager):
             self._logger.debug(f'Cancel _out_message_handler, peer_cid: {peer.cid}')
         except Exception as e:
             self._logger.debug(f'Exception _out_message_handler_done, peer_cid: {peer.cid}, e: {e}')
-        finally:
-            self._engine.remove_response_queue(peer)
