@@ -2,6 +2,7 @@ from typing import Tuple, NoReturn, Optional, TYPE_CHECKING
 import asyncio
 from functools import partial
 from logging import Logger, INFO
+from time import monotonic
 
 from .base_connection_manager import BaseConnectionManager
 from ..message.message_decoder import MessageDecoder
@@ -59,6 +60,7 @@ class ConnectionManager(BaseConnectionManager):
         async for message in peer:
             try:
                 bit_msg = MessageDecoder.deserialize(message)
+                peer.last_active = monotonic()
                 self._engine.handle_bit_swap_message(peer, bit_msg, peer_manager)
             except asyncio.exceptions.CancelledError:
                 raise

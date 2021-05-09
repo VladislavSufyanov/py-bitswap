@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Union, Dict, Tuple, Iterator, Optional, List, TYPE_CHECKING
+from typing import Union, Dict, Tuple, Iterator, Optional, List, TYPE_CHECKING, Any, NoReturn
 import asyncio
 
 from cid import CIDv0, CIDv1
@@ -14,7 +14,27 @@ class BasePeerManager(metaclass=ABCMeta):
     peers: Dict[Union[CIDv0, CIDv1], Tuple['Peer', asyncio.Task]]
 
     @abstractmethod
+    def __contains__(self, peer: 'Peer'):
+        pass
+
+    @abstractmethod
     def __iter__(self) -> Iterator['Peer']:
+        pass
+
+    @abstractmethod
+    def __enter__(self) -> 'BasePeerManager':
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
+
+    @abstractmethod
+    def run(self) -> None:
+        pass
+
+    @abstractmethod
+    def stop(self) -> None:
         pass
 
     @abstractmethod
@@ -31,4 +51,12 @@ class BasePeerManager(metaclass=ABCMeta):
 
     @abstractmethod
     async def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
+        pass
+
+    @abstractmethod
+    async def disconnect(self) -> None:
+        pass
+
+    @abstractmethod
+    async def disconnect_no_active_peers(self) -> NoReturn:
         pass

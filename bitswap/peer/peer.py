@@ -1,5 +1,6 @@
 from typing import Union, AsyncGenerator, TYPE_CHECKING
 from asyncio.queues import Queue, PriorityQueue
+from time import monotonic
 
 from cid import CIDv0, CIDv1
 
@@ -15,6 +16,7 @@ class Peer:
         self.ledger = ledger
         self.response_queue = Queue()
         self.tasks_queue = PriorityQueue()
+        self.last_active = monotonic()
         self._network_peer = network_peer
 
     def __aiter__(self) -> AsyncGenerator[bytes, None]:
