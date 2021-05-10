@@ -16,6 +16,9 @@ class MessageEntry:
         self.cancel = cancel
         self.send_do_not_have = send_do_not_have
 
+    def __lt__(self, other: 'MessageEntry') -> bool:
+        return self.entry.priority > other.entry.priority
+
     def dump_fields(self) -> Tuple[bytes, int, bool, 'ProtoBuff.WantType', bool]:
         return self.entry.cid.encode(), self.priority, self.cancel, self.entry.want_type, self.send_do_not_have
 

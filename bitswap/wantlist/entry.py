@@ -1,5 +1,4 @@
 from typing import Union, Optional, Set, TYPE_CHECKING
-from dataclasses import dataclass, field
 import weakref
 from asyncio import Event
 
@@ -10,15 +9,15 @@ if TYPE_CHECKING:
     from ..session.session import Session
 
 
-@dataclass
 class Entry:
 
-    cid: Union[CIDv0, CIDv1]
-    priority: int
-    want_type: 'ProtoBuff.WantType'
-    _block: Optional[bytes] = field(init=False, default=None)
-    block_event: Event = field(init=False, default=Event())
-    sessions: Set['Session'] = field(init=False, default=weakref.WeakSet())
+    def __init__(self, cid: Union[CIDv0, CIDv1], priority: int, want_type: 'ProtoBuff.WantType'):
+        self.cid = cid
+        self.priority = priority
+        self.want_type = want_type
+        self._block: Optional[bytes] = None
+        self.block_event = Event()
+        self.sessions = weakref.WeakSet()
 
     @property
     def block(self) -> Optional[bytes]:

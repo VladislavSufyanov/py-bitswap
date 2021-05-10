@@ -19,4 +19,4 @@ class Task:
             pass
         except Exception as e:
             if logger is not None:
-                logger.debug(f'Exception Task base_callback, e: {e}')
+                logger.debug(f'Exception Task base_callback, e: {e}, task: {task}')

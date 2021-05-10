@@ -10,6 +10,9 @@ class Block:
     _cid: Union[CIDv0, CIDv1]
     _data: bytes
 
+    def __len__(self) -> int:
+        return len(self._data)
+
     @property
     def data(self):
         return self._data

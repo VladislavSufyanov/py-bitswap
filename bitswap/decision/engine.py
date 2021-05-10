@@ -48,6 +48,7 @@ class Engine(BaseEngine):
                         cancel_peers.extend(session.get_notify_peers(cid, peer.cid))
                 if entry.block is None:
                     entry.block = block.data
+                    peer.bytes_receive += len(block)
                     self._logger.debug(f'Got block from {peer.cid}, block_cid: {cid}')
                     if cancel_peers:
                         Task.create_task(Sender.send_cancel(cid, cancel_peers),
@@ -79,4 +80,4 @@ class Engine(BaseEngine):
     async def _add_entries_q_ledger(peer: 'Peer', entries: Iterable['MessageEntry']) -> None:
         for entry in entries:
             peer.ledger.wants(entry.cid, entry.priority, entry.want_type)
-            await peer.tasks_queue.put((-entry.priority, entry))
+            await peer.tasks_queue.put(entry)

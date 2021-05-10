@@ -53,7 +53,9 @@ class Decision(BaseDecision):
     async def _send_block(self, peer_cid: Union[CIDv0, CIDv1],
                           block_cid: Union[CIDv0, CIDv1]) -> None:
         block = Block(block_cid, await self._block_storage.get(block_cid))
-        await Sender.send_blocks((self._peer_manager.get_peer(peer_cid),), (block,))
+        peer = self._peer_manager.get_peer(peer_cid)
+        peer.bytes_send += len(block)
+        await Sender.send_blocks((peer,), (block,))
         self._logger.debug(f'Sent block, peer_cid: {peer_cid}, block_cid: {block_cid}')
 
     async def _send_have(self, peer_cid: Union[CIDv0, CIDv1],
@@ -78,38 +80,45 @@ class Decision(BaseDecision):
     async def _decision(self) -> NoReturn:
         while True:
             try:
-                peer_sm_q = QueueManager.get_smallest_response_queue(self._peer_manager.get_all_peers())
-                if peer_sm_q is None:
+                peers_sm_q = QueueManager.get_peers_smallest_response_queue(self._peer_manager.get_all_peers())
+                if peers_sm_q is None:
                     await asyncio.sleep(self._sleep_timeout)
                 else:
-                    peer_cid = peer_sm_q.cid
-                    ledger = peer_sm_q.ledger
-                    tasks_queue = peer_sm_q.tasks_queue
-                    _, entry = await asyncio.wait_for(tasks_queue.get(), self._task_wait_timeout)
-                    entry: 'MessageEntry'
-                    while entry.cid not in ledger:
-                        _, entry = await asyncio.wait_for(tasks_queue.get(), self._task_wait_timeout)
-                    if entry.want_type == ProtoBuff.WantType.Have:
-                        wants = ledger.get_entry(entry.cid)
-                        if wants.want_type == ProtoBuff.WantType.Block:
-                            await self._send_block_or_do_not_have(peer_cid, entry.cid)
-                        elif wants.want_type == ProtoBuff.WantType.Have:
-                            if self._block_storage.has(entry.cid):
-                                if await self._block_storage.size(entry.cid) <= \
-                                        self._max_block_size_have_to_block:
-                                    await self._send_block(peer_cid, entry.cid)
-                                else:
-                                    await self._send_have(peer_cid, entry.cid)
-                            elif entry.send_do_not_have:
-                                await self._send_do_not_have(peer_cid, entry.cid)
-                        else:
-                            self._logger.warning(f'Bad wants want type, want_type: {wants.want_type}, '
-                                                 f'cid: {entry.cid}')
-                    elif entry.want_type == ProtoBuff.WantType.Block:
-                        await self._send_block_or_do_not_have(peer_cid, entry.cid)
+                    peer_not_empty_tasks_queue = []
+                    for peer_s_q in peers_sm_q:
+                        if peer_s_q.tasks_queue.qsize() > 0:
+                            peer_not_empty_tasks_queue.append(peer_s_q)
+                    if not peer_not_empty_tasks_queue:
+                        await asyncio.sleep(self._sleep_timeout)
                     else:
-                        self._logger.warning(f'Bad task entry want type, want_type: {entry.want_type}, '
-                                             f'cid: {entry.cid}')
+                        peer_high_rank = max(peer_not_empty_tasks_queue, key=lambda p: p.peer_rank)
+                        peer_cid = peer_high_rank.cid
+                        ledger = peer_high_rank.ledger
+                        tasks_queue = peer_high_rank.tasks_queue
+                        entry: 'MessageEntry' = await asyncio.wait_for(tasks_queue.get(), self._task_wait_timeout)
+                        while entry.cid not in ledger:
+                            _, entry = await asyncio.wait_for(tasks_queue.get(), self._task_wait_timeout)
+                        if entry.want_type == ProtoBuff.WantType.Have:
+                            wants = ledger.get_entry(entry.cid)
+                            if wants.want_type == ProtoBuff.WantType.Block:
+                                await self._send_block_or_do_not_have(peer_cid, entry.cid)
+                            elif wants.want_type == ProtoBuff.WantType.Have:
+                                if self._block_storage.has(entry.cid):
+                                    if await self._block_storage.size(entry.cid) <= \
+                                            self._max_block_size_have_to_block:
+                                        await self._send_block(peer_cid, entry.cid)
+                                    else:
+                                        await self._send_have(peer_cid, entry.cid)
+                                elif entry.send_do_not_have:
+                                    await self._send_do_not_have(peer_cid, entry.cid)
+                            else:
+                                self._logger.warning(f'Bad wants want type, want_type: {wants.want_type}, '
+                                                     f'cid: {entry.cid}')
+                        elif entry.want_type == ProtoBuff.WantType.Block:
+                            await self._send_block_or_do_not_have(peer_cid, entry.cid)
+                        else:
+                            self._logger.warning(f'Bad task entry want type, want_type: {entry.want_type}, '
+                                                 f'cid: {entry.cid}')
             except asyncio.exceptions.TimeoutError:
                 pass
             except asyncio.exceptions.CancelledError:
