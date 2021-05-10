@@ -8,9 +8,10 @@ from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 def _get_logger(logger_name: str, handler: Handler, log_level: int, formatter: Formatter) -> Logger:
     logger = getLogger(logger_name)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.setLevel(log_level)
+    if not logger.hasHandlers():
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(log_level)
     return logger
 
 
