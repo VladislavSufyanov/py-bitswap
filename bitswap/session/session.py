@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 class Session:
 
-    def __init__(self, network: 'BaseNetwork', peer_manager: 'BasePeerManager', min_score: int = -100,
+    def __init__(self, network: 'BaseNetwork', peer_manager: 'BasePeerManager',
                  log_level: int = INFO, log_path: Optional[str] = None) -> None:
         if log_path is None:
             self._logger = get_stream_logger_colored(__name__, log_level)
@@ -31,7 +31,6 @@ class Session:
         self._peers: Dict[str, PeerScore] = {}
         self._blocks_have: Dict[str, weakref.WeakSet] = {}
         self._blocks_pending: Dict[str, weakref.WeakSet] = {}
-        self._min_score = min_score
 
     def __contains__(self, peer: 'Peer') -> bool:
         return str(peer.cid) in self._peers
@@ -56,14 +55,11 @@ class Session:
                 self._blocks_have[str_block_cid] = weakref.WeakSet()
             self._blocks_have[str_block_cid].add(self._peers[str(peer.cid)])
 
-    def change_peer_score(self, cid: Union[CIDv0, CIDv1], score_diff: int) -> bool:
+    def change_peer_score(self, cid: Union[CIDv0, CIDv1], new: float, alpha: float = 0.5) -> bool:
         str_cid = str(cid)
         if str_cid not in self._peers:
             return False
-        new_score = self._peers[str_cid].change_score(score_diff)
-        if new_score < self._min_score:
-            self._logger.debug(f'Min score, session: {self}, peer_cid: {str_cid}')
-            self.remove_peer(cid)
+        self._peers[str_cid].change_score(new, alpha)
         return True
 
     def remove_peer(self, cid: Union[CIDv0, CIDv1]) -> bool:
@@ -72,6 +68,13 @@ class Session:
             return False
         del self._peers[str_cid]
         self._logger.debug(f'Remove peer from session, session: {self}, peer_cid: {str_cid}')
+        return True
+
+    def remove_peer_from_have(self, block_cid: Union[CIDv0, CIDv1], peer: 'Peer') -> bool:
+        str_cid = str(block_cid)
+        if str_cid not in self._blocks_have or peer not in self._blocks_have[str_cid]:
+            return False
+        self._blocks_have[str_cid].remove(peer)
         return True
 
     async def get(self, entry: 'Entry', connect_timeout: int = 7, peer_act_timeout: int = 5,
@@ -97,6 +100,7 @@ class Session:
                         await asyncio.sleep(peer_act_timeout)
                     elif await self._connect(new_peers_cid, ban_peers, connect_timeout, ban_peer_timeout) is None:
                         self._logger.warning(f'Cant connect to peers, session: {self}')
+                        await asyncio.sleep(peer_act_timeout)
                     else:
                         break
                 all_peers = self._peer_manager.get_all_peers()
@@ -156,7 +160,7 @@ class Session:
         return peer
 
     def _get_peer_with_max_score(self, cid: Union[CIDv0, CIDv1]) -> PeerScore:
-        return max(self._blocks_have[str(cid)], key=lambda p: p.score)
+        return max(self._blocks_have[str(cid)], key=lambda p: (p.score, -p.peer.latency))
 
     async def _wait_for_have_peer(self, cid: Union[CIDv0, CIDv1], period: float = 0.1) -> PeerScore:
         str_cid = str(cid)

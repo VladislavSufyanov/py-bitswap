@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from abc import ABCMeta, abstractmethod
 
 
@@ -14,4 +14,8 @@ class BasePeer(metaclass=ABCMeta):
 
     @abstractmethod
     async def close(self) -> None:
+        pass
+
+    @abstractmethod
+    async def ping(self) -> Optional[float]:
         pass

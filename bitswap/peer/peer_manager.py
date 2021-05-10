@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 class PeerManager(BasePeerManager):
 
     def __init__(self, connection_manager: 'BaseConnectionManager', network: 'BaseNetwork',
-                 max_no_active_time: int = 3600, log_level: int = INFO,
-                 log_path: Optional[str] = None) -> None:
+                 max_no_active_time: int = 3600, check_no_active_ping_period: int = 30,
+                 log_level: int = INFO, log_path: Optional[str] = None) -> None:
         if log_path is None:
             self._logger = get_stream_logger_colored(__name__, log_level)
         else:
@@ -31,6 +31,7 @@ class PeerManager(BasePeerManager):
         self._connection_manager = connection_manager
         self._network = network
         self._max_no_active_time = max_no_active_time
+        self._check_no_active_ping_period = check_no_active_ping_period
         self._peers: Dict[str, Peer] = {}
         self._disconnect_task: Optional[asyncio.Task] = None
 
@@ -100,7 +101,8 @@ class PeerManager(BasePeerManager):
                     res = await self._disconnect_peer(peer)
                     if res:
                         self._logger.debug(f'Connection was terminated, peer_cid: {peer.cid}')
-            await asyncio.sleep(self._max_no_active_time)
+                await peer.ping()
+            await asyncio.sleep(self._check_no_active_ping_period)
 
     async def _disconnect_peer(self, peer: Peer) -> bool:
         try:

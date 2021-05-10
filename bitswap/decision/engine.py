@@ -21,12 +21,15 @@ if TYPE_CHECKING:
 
 class Engine(BaseEngine):
 
-    def __init__(self, local_ledger: Ledger, log_level: int = INFO, log_path: Optional[str] = None) -> None:
+    def __init__(self, local_ledger: Ledger, term_score: float = 10, alpha_score: float = 0.5,
+                 log_level: int = INFO, log_path: Optional[str] = None) -> None:
         if log_path is None:
             self._logger = get_stream_logger_colored(__name__, log_level)
         else:
             self._logger = get_concurrent_logger(__name__, log_path, log_level)
         self.local_ledger = local_ledger
+        self._term_score = term_score
+        self._alpha_score = alpha_score
 
     def handle_bit_swap_message(self, peer: 'Peer', bit_swap_message:  'BitswapMessage',
                                 peer_manager: 'BasePeerManager') -> None:
@@ -43,8 +46,8 @@ class Engine(BaseEngine):
                 cancel_peers = []
                 for session in entry.sessions:
                     session.add_peer(peer, cid, have=False)
-                    session.change_peer_score(peer.cid, 1)
                     if entry.block is None:
+                        session.change_peer_score(peer.cid, self._term_score, self._alpha_score)
                         cancel_peers.extend(session.get_notify_peers(cid, peer.cid))
                 if entry.block is None:
                     entry.block = block.data
@@ -70,7 +73,8 @@ class Engine(BaseEngine):
                         session.add_peer(peer, cid)
                 elif b_presence_type == ProtoBuff.BlockPresenceType.DontHave:
                     for session in entry.sessions:
-                        session.change_peer_score(peer.cid, -1)
+                        session.change_peer_score(peer.cid, 0, self._alpha_score)
+                        session.remove_peer_from_have(entry.cid, peer)
 
     def _handle_entries(self, peer: 'Peer', entries: Dict[Union[CIDv0, CIDv1], 'MessageEntry']) -> None:
         Task.create_task(self._add_entries_q_ledger(peer, entries.values()),

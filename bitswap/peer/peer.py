@@ -1,6 +1,7 @@
 from typing import Union, AsyncGenerator, TYPE_CHECKING
 from asyncio.queues import Queue, PriorityQueue
 from time import monotonic
+from math import inf
 
 from cid import CIDv0, CIDv1
 
@@ -21,6 +22,7 @@ class Peer:
         self.tasks_queue = PriorityQueue()
         self.last_active = monotonic()
         self._network_peer = network_peer
+        self._latency: float = inf
 
     def __aiter__(self) -> AsyncGenerator[bytes, None]:
         return self._network_peer.__aiter__()
@@ -36,3 +38,11 @@ class Peer:
 
     async def close(self) -> None:
         await self._network_peer.close()
+
+    async def ping(self) -> None:
+        latency = await self._network_peer.ping()
+        self._latency = latency if latency is not None else inf
+
+    @property
+    def latency(self):
+        return self._latency

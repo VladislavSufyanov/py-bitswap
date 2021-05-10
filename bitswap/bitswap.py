@@ -28,8 +28,8 @@ class Bitswap(BaseBitswap):
     def __init__(self, network: 'BaseNetwork', block_storage: 'BaseBlockStorage',
                  log_level: int = logging.INFO, log_path: Optional[str] = None,
                  max_block_size_have_to_block: int = 1024, task_wait_timeout: float = 0.5,
-                 decision_sleep_timeout: float = 0.1, min_score: int = -100,
-                 max_no_active_time: int = 3600) -> None:
+                 decision_sleep_timeout: float = 0.1, term_score: float = 10, alpha_score: float = 0.5,
+                 max_no_active_time: int = 3600, check_no_active_ping_period: int = 30) -> None:
         if log_path is None:
             self._logger = get_stream_logger_colored(__name__, log_level)
         else:
@@ -37,11 +37,11 @@ class Bitswap(BaseBitswap):
         self._network = network
         self._block_storage = block_storage
         self._local_ledger = Ledger(WantList())
-        self._session_manager = SessionManager(min_score, log_level, log_path)
-        self._engine = Engine(self._local_ledger, log_level, log_path)
+        self._session_manager = SessionManager(log_level, log_path)
+        self._engine = Engine(self._local_ledger, term_score, alpha_score, log_level, log_path)
         self._connection_manager = ConnectionManager(self._session_manager, self._engine, log_level, log_path)
         self._peer_manager = PeerManager(self._connection_manager, self._network, max_no_active_time,
-                                         log_level, log_path)
+                                         check_no_active_ping_period, log_level, log_path)
         self._decision = Decision(self._block_storage, self._peer_manager, max_block_size_have_to_block,
                                   task_wait_timeout, decision_sleep_timeout, log_level, log_path)
 
